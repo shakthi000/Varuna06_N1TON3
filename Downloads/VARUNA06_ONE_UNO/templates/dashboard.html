@@ -1381,7 +1381,7 @@ footer{
     <div class="card small">
 
         <div class="label">
-            PHASE
+            REFERENCE
         </div>
 
         <strong id="phase">
@@ -1602,25 +1602,20 @@ footer{
 
 <script>
 
-/* ============================================================
-   HELPER FUNCTIONS
-============================================================ */
-
-function set(id,value){
+function set(id, value) {
 
     const el =
         document.getElementById(id);
 
-    if(el){
+    if (el) {
         el.textContent = value;
     }
 }
 
 
-function fmt(value,digits=2){
+function fmt(value, digits = 2) {
 
-    const n =
-        Number(value);
+    const n = Number(value);
 
     return Number.isFinite(n)
         ? n.toFixed(digits)
@@ -1628,9 +1623,9 @@ function fmt(value,digits=2){
 }
 
 
-/* ============================================================
-   MAIN LIVE CHART
-============================================================ */
+/* =========================================================
+   CHART
+========================================================= */
 
 const chartCtx =
     document
@@ -1642,119 +1637,121 @@ const chart =
     new Chart(
         chartCtx,
         {
-            type:"line",
+            type: "line",
 
-            data:{
-                labels:[],
+            data: {
 
-                datasets:[
+                labels: [],
+
+                datasets: [
 
                     {
-                        label:"RX magnitude",
-                        data:[],
-                        borderWidth:2,
-                        pointRadius:0,
-                        tension:.25
+                        label: "RX RMS",
+                        data: [],
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.25
                     },
 
                     {
-                        label:"Fusion %",
-                        data:[],
-                        borderWidth:1.5,
-                        pointRadius:0,
-                        tension:.25
+                        label: "Fusion %",
+                        data: [],
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        tension: 0.25
                     },
 
                     {
-                        label:"ML anomaly %",
-                        data:[],
-                        borderWidth:1.5,
-                        pointRadius:0,
-                        tension:.25
+                        label: "Final score %",
+                        data: [],
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        tension: 0.25
                     }
 
                 ]
             },
 
-            options:{
+            options: {
 
-                responsive:true,
+                responsive: true,
 
-                maintainAspectRatio:false,
+                maintainAspectRatio: false,
 
-                animation:false,
+                animation: false,
 
-                interaction:{
-                    intersect:false,
-                    mode:"index"
+                interaction: {
+                    intersect: false,
+                    mode: "index"
                 },
 
-                plugins:{
+                plugins: {
 
-                    legend:{
-                        labels:{
-                            color:"#8ca6b4",
-                            boxWidth:12,
-                            font:{
-                                size:10
+                    legend: {
+
+                        labels: {
+
+                            color: "#8ca6b4",
+
+                            boxWidth: 12,
+
+                            font: {
+                                size: 10
                             }
                         }
                     }
-
                 },
 
-                scales:{
+                scales: {
 
-                    x:{
-                        display:false
+                    x: {
+                        display: false
                     },
 
-                    y:{
+                    y: {
 
-                        grid:{
+                        grid: {
                             color:
                                 "rgba(255,255,255,.045)"
                         },
 
-                        ticks:{
-                            color:"#617986",
-                            font:{
-                                size:9
+                        ticks: {
+
+                            color: "#617986",
+
+                            font: {
+                                size: 9
                             }
                         }
-
                     }
-
                 }
-
             }
-
         }
     );
 
 
-/* ============================================================
+/* =========================================================
    RESET BASELINE
-============================================================ */
+========================================================= */
 
-async function resetBaseline(){
+async function resetBaseline() {
 
-    if(
+    if (
         !confirm(
-            "Recalibrate the Arduino UNO baseline?"
+            "Recalibrate VARUNA06 baseline?"
         )
-    ){
+    ) {
         return;
     }
 
 
-    try{
+    try {
 
         const response =
             await fetch(
                 "/baseline/reset",
                 {
-                    method:"POST"
+                    method: "POST"
                 }
             );
 
@@ -1765,42 +1762,43 @@ async function resetBaseline(){
 
         alert(
             data.message ||
-            "Baseline reset command sent."
+            "Baseline reset."
         );
+
 
     }
 
-    catch(error){
+    catch (error) {
 
         alert(
-            "Could not reach the Flask backend."
+            "Could not reach Flask backend."
         );
-
     }
-
 }
 
 
-/* ============================================================
-   MAIN UPDATE
-============================================================ */
+/* =========================================================
+   UPDATE
+========================================================= */
 
-async function update(){
+async function update() {
 
-    try{
+    try {
 
         const response =
             await fetch(
                 "/data",
                 {
-                    cache:"no-store"
+                    cache: "no-store"
                 }
             );
 
 
-        if(!response.ok){
+        if (!response.ok) {
+
             throw new Error(
-                "HTTP " + response.status
+                "HTTP " +
+                response.status
             );
         }
 
@@ -1829,9 +1827,9 @@ async function update(){
             raw.N3 || {};
 
 
-        /* ----------------------------------------------------
+        /* =================================================
            CONNECTION
-        ---------------------------------------------------- */
+        ================================================= */
 
         const online =
             !!d.connection;
@@ -1854,29 +1852,80 @@ async function update(){
             );
 
 
-        /* ----------------------------------------------------
+        /* =================================================
            N1
-        ---------------------------------------------------- */
+        ================================================= */
 
         set(
             "magNode",
-            n1.available === false
-                ? "MAGNETOMETER OFFLINE"
-                : "MAGNETOMETER ACTIVE"
+            n1.available
+                ? (
+                    n1.simulated
+                        ? "DERIVED EM PROXY"
+                        : "MAGNETOMETER ACTIVE"
+                )
+                : "MAGNETOMETER OFFLINE"
         );
 
 
         set(
             "n1state",
-            n1.available === false
-                ? "● OFFLINE"
-                : "● SIMULATED"
+            n1.available
+                ? (
+                    n1.simulated
+                        ? "● SIMULATED"
+                        : "● ACTIVE"
+                )
+                : "● OFFLINE"
         );
 
 
-        /* ----------------------------------------------------
+        /* =================================================
+           N1 VALUE
+        ================================================= */
+
+        const magnetic =
+            Number(
+                n1.magnitude || 0
+            );
+
+
+        const magneticChange =
+            Number(
+                n1.delta_percent || 0
+            );
+
+
+        set(
+            "mag",
+            fmt(
+                magnetic,
+                2
+            )
+        );
+
+
+        set(
+            "magSecondary",
+            fmt(
+                magnetic,
+                2
+            )
+        );
+
+
+        set(
+            "magdelta",
+            fmt(
+                magneticChange,
+                2
+            ) + "%"
+        );
+
+
+        /* =================================================
            N2
-        ---------------------------------------------------- */
+        ================================================= */
 
         const frequency =
             Number(
@@ -1902,13 +1951,25 @@ async function update(){
         );
 
 
-        /* ----------------------------------------------------
-           N3 / EM RECEIVER
-        ---------------------------------------------------- */
+        /* =================================================
+           N3
+        ================================================= */
 
         const rx =
             Number(
-                n3.magnitude_v || 0
+                n3.rx_v || 0
+            );
+
+
+        const rms =
+            Number(
+                n3.rx_rms_v || 0
+            );
+
+
+        const pp =
+            Number(
+                n3.rx_peak_to_peak_v || 0
             );
 
 
@@ -1918,113 +1979,91 @@ async function update(){
             );
 
 
-        const emChange =
+        const change =
             Number(
-                a.em_change_percent || 0
+                a.signal_change_percent || 0
             );
 
 
         set(
             "rx",
-            fmt(rx,6)
+            fmt(
+                rms,
+                6
+            )
         );
 
 
         set(
             "rxSecondary",
-            fmt(rx,6) + " V"
+            fmt(
+                rms,
+                6
+            ) + " V RMS"
         );
 
 
         set(
             "miniRx",
-            fmt(rx,6) + " V"
+            fmt(
+                rms,
+                6
+            ) + " V RMS"
         );
 
 
         set(
             "baseline",
-            fmt(baseline,6) + " V"
+            fmt(
+                baseline,
+                6
+            ) + " V"
         );
 
 
         set(
             "miniBaseline",
-            fmt(baseline,6) + " V"
+            fmt(
+                baseline,
+                6
+            ) + " V"
         );
 
 
         set(
             "emchange",
-            fmt(emChange,1) + "%"
-        );
-
-
-        set(
-            "miniChange",
-            fmt(emChange,1) + "%"
-        );
-
-
-        /* ----------------------------------------------------
-           PHASE
-        ---------------------------------------------------- */
-
-        set(
-            "phase",
             fmt(
-                n3.phase_deg,
-                1
-            ) + "°"
-        );
-
-
-        /* ----------------------------------------------------
-           MAGNETIC
-        ---------------------------------------------------- */
-
-        const magnetic =
-            Number(
-                n1.magnitude || 0
-            );
-
-
-        const magneticChange =
-            Number(
-                a.magnetic_change_percent || 0
-            );
-
-
-        set(
-            "mag",
-            fmt(
-                magnetic,
-                1
-            )
-        );
-
-
-        set(
-            "magSecondary",
-            fmt(
-                magnetic,
-                1
-            )
-        );
-
-
-        set(
-            "magdelta",
-            fmt(
-                magneticChange,
+                change,
                 1
             ) + "%"
         );
 
 
-        /* ----------------------------------------------------
+        set(
+            "miniChange",
+            fmt(
+                change,
+                1
+            ) + "%"
+        );
+
+
+        /* =================================================
+           REFERENCE
+        ================================================= */
+
+        set(
+            "phase",
+            fmt(
+                n3.reference_v,
+                6
+            ) + " V"
+        );
+
+
+        /* =================================================
            FUSION
-        ---------------------------------------------------- */
+        ================================================= */
 
         const fusion =
             Number(
@@ -2051,7 +2090,9 @@ async function update(){
 
 
         document
-            .getElementById("fusionFill")
+            .getElementById(
+                "fusionFill"
+            )
             .style.width =
                 Math.min(
                     100,
@@ -2064,15 +2105,19 @@ async function update(){
 
         set(
             "hardwareStatus",
-            fusion >= 55
-                ? "TARGET SIGNATURE"
-                : "NORMAL"
+            a.confirmed
+                ? "TARGET CONFIRMED"
+                : a.interference
+                    ? "INTERFERENCE REJECTED"
+                    : a.anomaly
+                        ? "CONFIRMING"
+                        : "NORMAL"
         );
 
 
-        /* ----------------------------------------------------
+        /* =================================================
            ML
-        ---------------------------------------------------- */
+        ================================================= */
 
         const mlScore =
             Number(
@@ -2099,7 +2144,9 @@ async function update(){
 
 
         document
-            .getElementById("mlFill")
+            .getElementById(
+                "mlFill"
+            )
             .style.width =
                 Math.min(
                     100,
@@ -2112,66 +2159,51 @@ async function update(){
 
         set(
             "mlStatus",
-            d.ml_trained
-                ? (
-                    a.ml_anomaly
-                        ? "ANOMALY"
-                        : "MODEL NORMAL"
-                )
-                : (
-                    d.ml_available
-                        ? "LEARNING BASELINE"
-                        : "ML UNAVAILABLE"
-                )
+            "ML DISABLED"
         );
 
 
-        /* ----------------------------------------------------
+        /* =================================================
            NOISE
-        ---------------------------------------------------- */
+        ================================================= */
+
+        const noise =
+            Number(
+                a.noise_percent || 0
+            );
+
 
         set(
             "noise",
             fmt(
-                n3.noise_v,
-                6
-            ) + " V"
+                noise,
+                2
+            ) + "%"
         );
 
 
-        /* ----------------------------------------------------
-           ANOMALY SCORE
-        ---------------------------------------------------- */
+        /* =================================================
+           FINAL SCORE
+        ================================================= */
 
-        const ml =
+        const finalScore =
             Number(
-                a.ml_score || 0
-            );
-
-
-        const score =
-            Math.max(
-                fusion,
-                ml
+                a.fusion_score || 0
             );
 
 
         set(
             "score",
             fmt(
-                score,
+                finalScore,
                 0
             )
         );
 
 
-        /* ----------------------------------------------------
+        /* =================================================
            DETECTION STATUS
-        ---------------------------------------------------- */
-
-        const danger =
-            !!a.anomaly;
-
+        ================================================= */
 
         const status =
             document.getElementById(
@@ -2179,33 +2211,75 @@ async function update(){
             );
 
 
-        status.textContent =
-            danger
-                ? "⚠ ANOMALY DETECTED"
-                : "✓ SIGNAL NORMAL";
+        if (
+            a.confirmed
+        ) {
+
+            status.textContent =
+                "⚠ TARGET CONFIRMED";
+
+            status.classList.add(
+                "danger"
+            );
+
+        }
+
+        else if (
+            a.interference
+        ) {
+
+            status.textContent =
+                "≈ INTERFERENCE REJECTED";
+
+            status.classList.remove(
+                "danger"
+            );
+
+        }
+
+        else if (
+            a.anomaly
+        ) {
+
+            status.textContent =
+                "◐ CONFIRMING SIGNAL";
+
+            status.classList.remove(
+                "danger"
+            );
+
+        }
+
+        else {
+
+            status.textContent =
+                "✓ SIGNAL NORMAL";
+
+            status.classList.remove(
+                "danger"
+            );
+        }
 
 
-        status.classList.toggle(
-            "danger",
-            danger
-        );
-
-
-        /* ----------------------------------------------------
+        /* =================================================
            SCAN STATE
-        ---------------------------------------------------- */
+        ================================================= */
 
         set(
             "scanState",
             a.confirmed
                 ? "ADAPTIVE RESCAN"
-                : "NORMAL SCAN"
+                : a.interference
+                    ? "INTERFERENCE REJECTED"
+                    : a.anomaly
+                        ? "CONFIRMING"
+                        : "NORMAL SCAN"
         );
 
 
-        /* ----------------------------------------------------
-           HISTORY
-        ---------------------------------------------------- */
+        /* =================================================
+           CHART
+        ================================================= */
 
         const h =
             d.history || [];
@@ -2213,40 +2287,45 @@ async function update(){
 
         chart.data.labels =
             h.map(
-                (_,i) => i
+                (_, i) => i
             );
 
 
         chart.data.datasets[0].data =
             h.map(
-                x => Number(
-                    x.rx || 0
-                )
+                x =>
+                    Number(
+                        x.rx || 0
+                    )
             );
 
 
         chart.data.datasets[1].data =
             h.map(
-                x => Number(
-                    x.fusion || 0
-                )
+                x =>
+                    Number(
+                        x.fusion || 0
+                    )
             );
 
 
         chart.data.datasets[2].data =
             h.map(
-                x => Number(
-                    x.ml || 0
-                )
+                x =>
+                    Number(
+                        x.score || 0
+                    )
             );
 
 
-        chart.update("none");
+        chart.update(
+            "none"
+        );
 
 
-        /* ----------------------------------------------------
+        /* =================================================
            EVENTS
-        ---------------------------------------------------- */
+        ================================================= */
 
         const ev =
             document.getElementById(
@@ -2258,7 +2337,9 @@ async function update(){
             d.events || [];
 
 
-        if(events.length === 0){
+        if (
+            events.length === 0
+        ) {
 
             ev.innerHTML = `
                 <div class="event">
@@ -2269,35 +2350,47 @@ async function update(){
 
         }
 
-        else{
+        else {
 
             ev.innerHTML =
                 events
-                    .slice(0,12)
+                    .slice(
+                        0,
+                        12
+                    )
                     .map(
                         e => {
 
                             let cls = "";
 
-                            if(
+
+                            if (
                                 e.type ===
                                 "BASELINE"
-                            ){
-                                cls = "base";
+                            ) {
+
+                                cls =
+                                    "base";
+
                             }
 
-                            else if(
+                            else if (
                                 e.type ===
-                                "RESCAN"
-                            ){
-                                cls = "rescan";
+                                "CONFIRMED"
+                            ) {
+
+                                cls =
+                                    "rescan";
+
                             }
 
-                            else if(
+                            else if (
                                 e.type ===
                                 "SYSTEM"
-                            ){
-                                cls = "system";
+                            ) {
+
+                                cls =
+                                    "system";
                             }
 
 
@@ -2318,7 +2411,6 @@ async function update(){
 
                                 </div>
                             `;
-
                         }
                     )
                     .join("");
@@ -2326,7 +2418,12 @@ async function update(){
 
     }
 
-    catch(error){
+    catch (error) {
+
+        console.error(
+            error
+        );
+
 
         set(
             "connection",
@@ -2338,21 +2435,19 @@ async function update(){
             .getElementById("dot")
             .classList
             .remove("online");
-
     }
-
 }
 
 
-/* ============================================================
+/* =========================================================
    START
-============================================================ */
+========================================================= */
 
 update();
 
 setInterval(
     update,
-    250
+    500
 );
 
 </script>
