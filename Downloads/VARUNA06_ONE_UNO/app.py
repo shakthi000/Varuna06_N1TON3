@@ -1,5 +1,6 @@
-from flask import Flask, jsonify, render_template, Response
+from flask import Flask, jsonify, render_template, Response, request
 import serial
+import serial.tools.list_ports
 import threading
 import time
 import json
@@ -1975,6 +1976,67 @@ def export():
         }
 
     )
+
+
+# ============================================================
+# SETTINGS & PORTS API
+# ============================================================
+
+@app.route("/api/ports")
+def get_ports():
+    try:
+        ports = [p.device for p in serial.tools.list_ports.comports()]
+        if not ports:
+            ports = ["COM1", "COM2", "COM3", "COM4", "COM5"]
+    except Exception:
+        ports = ["COM1", "COM2", "COM3", "COM4", "COM5"]
+    return jsonify({"ports": ports, "current": SERIAL_PORT, "baud": BAUD_RATE})
+
+
+@app.route("/api/settings", methods=["GET"])
+def get_settings():
+    return jsonify({
+        "serial_port": SERIAL_PORT,
+        "baud_rate": BAUD_RATE,
+        "noise_sigma": NOISE_SIGMA_GATE,
+        "persistence": PERSISTENCE_REQUIRED
+    })
+
+
+@app.route("/settings/update", methods=["POST"])
+def update_settings():
+    global SERIAL_PORT, BAUD_RATE, NOISE_SIGMA_GATE, PERSISTENCE_REQUIRED, serial_connection
+    data = request.json or {}
+    
+    if "serial_port" in data:
+        SERIAL_PORT = str(data["serial_port"])
+    if "baud_rate" in data:
+        try:
+            BAUD_RATE = int(data["baud_rate"])
+        except ValueError:
+            pass
+    if "noise_sigma" in data:
+        try:
+            NOISE_SIGMA_GATE = float(data["noise_sigma"])
+        except ValueError:
+            pass
+    if "persistence" in data:
+        try:
+            PERSISTENCE_REQUIRED = int(data["persistence"])
+        except ValueError:
+            pass
+
+    # Force reconnect with new port
+    with serial_lock:
+        if serial_connection:
+            try:
+                serial_connection.close()
+            except Exception:
+                pass
+            serial_connection = None
+
+    add_event("SYSTEM", f"Settings updated: Port={SERIAL_PORT}, Baud={BAUD_RATE}")
+    return jsonify({"success": True, "message": "Settings updated and serial reconnection scheduled."})
 
 
 # ============================================================
