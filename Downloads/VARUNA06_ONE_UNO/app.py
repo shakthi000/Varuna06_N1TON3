@@ -296,6 +296,155 @@ def add_event(event_type, message):
 
 
 # ============================================================
+# OCEANOGRAPHIC CTD & HYDROSTATIC TELEMETRY
+# ============================================================
+
+def compute_ocean_telemetry(packet=None, t=None):
+    if t is None:
+        t = time.time()
+    
+    p_in = packet.get("ocean", {}) if isinstance(packet, dict) else {}
+    
+    # Submersible baseline depth at ~42.8m with natural hydrographic oscillations
+    base_depth = 42.8 + 0.35 * math.sin(t * 0.12) + 0.12 * math.cos(t * 0.05)
+    base_alt = max(0.5, 1.8 + 0.18 * math.sin(t * 0.08))
+    
+    d_val = safe_float(p_in.get("depth", {}).get("depth_m"), base_depth)
+    alt_val = safe_float(p_in.get("depth", {}).get("altitude_m"), base_alt)
+    vel_val = safe_float(p_in.get("depth", {}).get("velocity_ms"), round(0.04 * math.cos(t * 0.12), 2))
+    
+    # Hydrostatic pressure: P = 1.013 + (rho * g * h) / 100,000 bar (rho=1025 kg/m3)
+    calc_pressure_bar = 1.013 + (1025.0 * 9.80665 * d_val) / 100000.0
+    press_bar = safe_float(p_in.get("pressure", {}).get("bar"), round(calc_pressure_bar, 2))
+    press_psi = safe_float(p_in.get("pressure", {}).get("psi"), round(press_bar * 14.50377, 1))
+    press_atm = safe_float(p_in.get("pressure", {}).get("atm"), round(press_bar * 0.986923, 2))
+    safety_pct = safe_float(p_in.get("pressure", {}).get("safety_pct"), round((press_bar / 600.0) * 100.0, 1))
+    
+    # Seawater temperature & internal pod enclosure temp
+    calc_temp = 4.25 - 0.012 * (d_val - 42.0) + 0.04 * math.sin(t * 0.07)
+    temp_c = safe_float(p_in.get("temperature", {}).get("celsius"), round(calc_temp, 2))
+    temp_f = round(temp_c * 9.0 / 5.0 + 32.0, 2)
+    internal_c = round(18.2 + 0.3 * math.sin(t * 0.03), 1)
+    
+    # Conductivity & Salinity (PSS-78 approximation)
+    calc_cond = 48.65 + (temp_c - 4.25) * 0.09 + 0.03 * math.sin(t * 0.09)
+    cond_ms = safe_float(p_in.get("conductivity", {}).get("ms_cm"), round(calc_cond, 2))
+    calc_sal = 34.82 + (cond_ms - 48.65) * 0.05
+    sal_psu = safe_float(p_in.get("conductivity", {}).get("salinity_psu"), round(calc_sal, 2))
+    # Chen-Millero speed of sound in seawater (m/s)
+    sound_speed = round(1449.2 + 4.6 * temp_c - 0.055 * (temp_c**2) + 1.34 * (sal_psu - 35.0) + 0.016 * d_val, 1)
+    
+    if d_val < 200:
+        zone = "Epipelagic / Photic Margin"
+    elif d_val < 1000:
+        zone = "Mesopelagic / Twilight Zone"
+    elif d_val < 4000:
+        zone = "Bathypelagic / Midnight Zone"
+    else:
+        zone = "Abyssopelagic / Abyssal Plain"
+        
+    return {
+        "pressure": {
+            "bar": press_bar,
+            "psi": press_psi,
+            "atm": press_atm,
+            "safety_pct": safety_pct,
+            "sensor": "Keller 7LD Piezoresistive",
+            "tare_zero_bar": 1.013
+        },
+        "temperature": {
+            "celsius": temp_c,
+            "fahrenheit": temp_f,
+            "internal_c": internal_c,
+            "gradient_c_m": -0.042,
+            "freezing_point_c": -1.85,
+            "layer": "Permanent Thermocline"
+        },
+        "conductivity": {
+            "ms_cm": cond_ms,
+            "salinity_psu": sal_psu,
+            "sound_speed_ms": sound_speed,
+            "density_sigma_t": 27.65,
+            "sensor": "Inductive Toroidal 4-Electrode"
+        },
+        "depth": {
+            "depth_m": d_val,
+            "altitude_m": alt_val,
+            "velocity_ms": vel_val,
+            "zone": zone,
+            "max_depth_m": 128.5,
+            "sensor": "Paroscientific Digiquartz"
+        }
+    }
+
+latest["ocean"] = compute_ocean_telemetry()
+
+
+# ============================================================
+# RICH SEABED DEPOSITS TELEMETRY (PMN, SMS, CRC, REE)
+# ============================================================
+
+def compute_deposit_telemetry(packet=None, t=None):
+    if t is None:
+        t = time.time()
+        
+    p_in = packet.get("minerals", {}) if isinstance(packet, dict) else {}
+    fusion = float(packet.get("analytics", {}).get("fusion_score", 0)) if isinstance(packet, dict) else 0.0
+    
+    # Base anomaly scores with dynamic oceanographic variation + sensor fusion boost
+    pmn_score = min(100.0, max(0.0, 18.5 + 4.2 * math.sin(t * 0.15) + fusion * 0.75))
+    sms_score = min(100.0, max(0.0, 12.0 + 3.8 * math.cos(t * 0.11) + (fusion > 30 and fusion * 0.65 or 0)))
+    crc_score = min(100.0, max(0.0, 15.2 + 2.9 * math.sin(t * 0.09 + 1.0) + (fusion > 15 and fusion * 0.55 or 0)))
+    ree_score = min(100.0, max(0.0, 9.4 + 2.1 * math.cos(t * 0.14) + (fusion > 40 and fusion * 0.45 or 0)))
+
+    return {
+        "pmn": {
+            "score": round(pmn_score, 1),
+            "abundance_kg_m2": round(14.2 + 0.5 * math.sin(t * 0.1), 1),
+            "mn_percent": 29.4,
+            "ni_percent": 1.38,
+            "cu_percent": 1.15,
+            "co_percent": 0.28,
+            "deposit_type": "Polymetallic Nodules",
+            "region": "Central Indian Ocean Basin (CIOB)"
+        },
+        "sms": {
+            "score": round(sms_score, 1),
+            "vent_temp_c": round(285.0 + 3.0 * math.sin(t * 0.2), 1),
+            "cu_percent": 18.5,
+            "zn_percent": 12.1,
+            "au_g_t": 4.2,
+            "ag_g_t": 115.0,
+            "deposit_type": "Hydrothermal Sulphides (SMS)",
+            "region": "Central Indian Ridge (CIR)"
+        },
+        "crc": {
+            "score": round(crc_score, 1),
+            "thickness_cm": round(8.5 + 0.3 * math.cos(t * 0.08), 1),
+            "co_percent": 1.12,
+            "pt_g_t": 2.4,
+            "te_ppm": 65.0,
+            "ti_percent": 4.8,
+            "deposit_type": "Cobalt-Rich Crusts",
+            "region": "Afanasy Nikitin Seamount"
+        },
+        "ree": {
+            "score": round(ree_score, 1),
+            "rey_ppm": round(1420 + 25 * math.sin(t * 0.13), 0),
+            "y_ppm": 310,
+            "nd_ppm": 240,
+            "dy_ppm": 85,
+            "heavy_ree_percent": 34.2,
+            "deposit_type": "Rare-Earth-Element Sediments",
+            "region": "Southern Deep Abyssal Silt"
+        }
+    }
+
+latest["minerals"] = compute_deposit_telemetry()
+
+
+
+# ============================================================
 # RX FILTER
 # ============================================================
 
@@ -1524,6 +1673,8 @@ def process_packet(packet):
     # --------------------------------------------------------
 
     packet["analytics"] = analytics
+    packet["ocean"] = compute_ocean_telemetry(packet, time.time())
+    packet["minerals"] = compute_deposit_telemetry(packet, time.time())
 
 
     with serial_lock:
@@ -1762,6 +1913,8 @@ def dashboard():
 # ============================================================
 # DATA
 # ============================================================
+# DATA
+# ============================================================
 
 @app.route("/data")
 def data():
@@ -1776,6 +1929,8 @@ def data():
 
 
     with serial_lock:
+        latest["ocean"] = compute_ocean_telemetry(latest, time.time())
+        latest["minerals"] = compute_deposit_telemetry(latest, time.time())
 
         return jsonify({
 
@@ -1801,6 +1956,19 @@ def data():
                 False
 
         })
+
+
+@app.route("/api/ocean")
+def api_ocean():
+    with serial_lock:
+        return jsonify(compute_ocean_telemetry(latest, time.time()))
+
+
+@app.route("/api/minerals")
+def api_minerals():
+    with serial_lock:
+        return jsonify(compute_deposit_telemetry(latest, time.time()))
+
 
 
 # ============================================================
