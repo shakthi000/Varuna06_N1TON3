@@ -77,82 +77,92 @@ serial_connection = None
 serial_lock = threading.Lock()
 
 last_packet_time = 0
+ARDUINO_TIMEOUT_SECONDS = 5.0
 
 history = []
 telemetry_history = []
 events = []
 
 
-latest = {
+def zeroed_telemetry_payload():
 
-    "system": "VARUNA06",
-
-    "timestamp": 0,
-
-    "sample": 0,
-
-    "N1": {
-        "available": True,
-        "simulated": True,
-        "magnitude": 0,
-        "magnetic_change_percent": 0
-    },
-
-    "N2": {
-        "tx": 0,
-        "frequency": 0
-    },
-
-    "N3": {
-        "available": False,
-        "rx_v": 0,
-        "rx_rms_v": 0,
-        "rx_peak_to_peak_v": 0,
-        "reference_v": 0,
-        "bias_expected_v": 2.5
-    },
-
-    "N4": {
-        "available": False
-    },
-
-    "N5": {
-        "available": False
-    },
-
-    "N6": {
-        "available": False
-    },
-
-    "analytics": {
-
-        "baseline_v": 0,
-        "filtered_v": 0,
-
-        "rx_rms_v": 0,
-        "rx_peak_to_peak_v": 0,
-
-        "signal_change_percent": 0,
-        "em_change_percent": 0,
-
-        "noise_percent": 0,
-        "signal_to_noise": 0,
-
-        "frequency_consistency": 0,
-        "frequency_support": 0,
-
-        "persistence": 0,
-
-        "signal_score": 0,
-        "fusion_score": 0,
-        "final_score": 0,
-
-        "ml_score": 0,
-
-        "anomaly": False,
-        "confirmed": False
+    return {
+        "system": "VARUNA06",
+        "timestamp": 0,
+        "sample": 0,
+        "N1": {
+            "available": False,
+            "simulated": False,
+            "magnitude": 0.0,
+            "magnetic_change_percent": 0.0
+        },
+        "N2": {
+            "tx": 0.0,
+            "frequency": 0.0
+        },
+        "N3": {
+            "available": False,
+            "rx_v": 0.0,
+            "rx_rms_v": 0.0,
+            "rx_peak_to_peak_v": 0.0,
+            "reference_v": 0.0,
+            "bias_expected_v": 2.5
+        },
+        "N4": {"available": False},
+        "N5": {"available": False},
+        "N6": {"available": False},
+        "analytics": {
+            "baseline_v": 0.0,
+            "filtered_v": 0.0,
+            "rx_rms_v": 0.0,
+            "rx_peak_to_peak_v": 0.0,
+            "signal_change_percent": 0.0,
+            "em_change_percent": 0.0,
+            "noise_percent": 0.0,
+            "signal_to_noise": 0.0,
+            "frequency_consistency": 0.0,
+            "frequency_support": 0.0,
+            "persistence": 0.0,
+            "signal_score": 0.0,
+            "fusion_score": 0.0,
+            "final_score": 0.0,
+            "ml_score": 0.0,
+            "anomaly": False,
+            "confirmed": False,
+            "interference": False
+        },
+        "ocean": {
+            "pressure": {"bar": 0.0, "psi": 0.0, "atm": 0.0, "safety_pct": 0.0},
+            "temperature": {"celsius": 0.0, "fahrenheit": 0.0, "internal_c": 0.0},
+            "conductivity": {"ms_cm": 0.0, "salinity_psu": 0.0, "sound_speed_ms": 0.0},
+            "depth": {"depth_m": 0.0, "altitude_m": 0.0, "velocity_ms": 0.0, "zone": "OFFLINE"}
+        },
+        "minerals": {
+            "pmn": {"score": 0.0, "abundance_kg_m2": 0.0},
+            "sms": {"score": 0.0, "vent_temp_c": 0.0},
+            "crc": {"score": 0.0, "thickness_cm": 0.0},
+            "ree": {"score": 0.0, "rey_ppm": 0.0}
+        }
     }
-}
+
+
+def is_arduino_online():
+    if serial_connection is None:
+        return False
+
+    try:
+        if hasattr(serial_connection, "is_open") and not serial_connection.is_open:
+            return False
+    except Exception:
+        return False
+
+    if last_packet_time <= 0:
+        return False
+
+    return (time.time() - last_packet_time) < ARDUINO_TIMEOUT_SECONDS
+
+
+latest = zeroed_telemetry_payload()
 
 
 # ============================================================
@@ -1803,97 +1813,44 @@ def serial_reader():
 
     global serial_connection
 
-
     while True:
-
         try:
-
             if serial_connection is None:
-
-                print(
-                    "Opening",
-                    SERIAL_PORT
-                )
-
-
-                serial_connection = \
-                    serial.Serial(
-                        SERIAL_PORT,
-                        BAUD_RATE,
-                        timeout=1
-                    )
-
-
+                print("Opening", SERIAL_PORT)
+                serial_connection = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
                 time.sleep(2)
+                print("UNO connected")
 
-
-                print(
-                    "UNO connected"
-                )
-
-
-            line = (
-
-                serial_connection
-                .readline()
-                .decode(
-                    "utf-8",
-                    errors="ignore"
-                )
-                .strip()
-
-            )
-
+            line = serial_connection.readline().decode("utf-8", errors="ignore").strip()
 
             if not line:
-
                 continue
-
 
             if not line.startswith("{"):
-
                 continue
 
-
             try:
-
-                packet = json.loads(
-                    line
-                )
-
-                process_packet(
-                    packet
-                )
-
-
+                packet = json.loads(line)
+                process_packet(packet)
             except Exception as e:
-
-                print(
-                    "JSON error:",
-                    e
-                )
-
+                print("JSON error:", e)
 
         except Exception as e:
-
-            print(
-                "Serial error:",
-                e
-            )
-
+            print("Serial error:", e)
 
             try:
-
                 if serial_connection:
-
                     serial_connection.close()
-
             except Exception:
-
                 pass
 
-
-            serial_connection = None
+            with serial_lock:
+                serial_connection = None
+                last_packet_time = 0
+                latest.clear()
+                latest.update(zeroed_telemetry_payload())
+                history.clear()
+                telemetry_history.clear()
 
             time.sleep(2)
 
@@ -1919,54 +1876,52 @@ def dashboard():
 @app.route("/data")
 def data():
 
-    connected = (
-
-        time.time()
-        -
-        last_packet_time
-
-    ) < 3
-
-
     with serial_lock:
+        connected = is_arduino_online()
+
+        if not connected:
+            latest.clear()
+            latest.update(zeroed_telemetry_payload())
+            history.clear()
+            telemetry_history.clear()
+
+            return jsonify({
+                "raw": latest,
+                "history": [],
+                "events": events,
+                "connection": False,
+                "gateway": False,
+                "ml_available": False,
+                "ml_trained": False
+            })
+
         latest["ocean"] = compute_ocean_telemetry(latest, time.time())
         latest["minerals"] = compute_deposit_telemetry(latest, time.time())
 
         return jsonify({
-
-            "raw":
-                latest,
-
-            "history":
-                history,
-
-            "events":
-                events,
-
-            "connection":
-                connected,
-
-            "gateway":
-                connected,
-
-            "ml_available":
-                False,
-
-            "ml_trained":
-                False
-
+            "raw": latest,
+            "history": history,
+            "events": events,
+            "connection": True,
+            "gateway": True,
+            "ml_available": False,
+            "ml_trained": False
         })
 
 
 @app.route("/api/ocean")
 def api_ocean():
     with serial_lock:
+        if not is_arduino_online():
+            return jsonify(zeroed_telemetry_payload()["ocean"])
         return jsonify(compute_ocean_telemetry(latest, time.time()))
 
 
 @app.route("/api/minerals")
 def api_minerals():
     with serial_lock:
+        if not is_arduino_online():
+            return jsonify(zeroed_telemetry_payload()["minerals"])
         return jsonify(compute_deposit_telemetry(latest, time.time()))
 
 

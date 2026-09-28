@@ -3215,6 +3215,8 @@ body.modal-open .official-footer {
         <div class="disclaimer-content">
             <p class="disclaimer-text" id="disclaimerText">
                 “The data shown on this portal is based on our research, available datasets, and validation results. Results are presented with confidence levels and may vary under real-world seafloor conditions. Our multi-sensor verification and re-scan process is designed to reduce uncertainty.”
+                <br><br>
+                IMPORTANT: This website works only when the microcontroller is connected and actively transmitting valid sensor data.
             </p>
 
             <div class="disclaimer-attribution">
@@ -4341,6 +4343,118 @@ function animatePod() {
 
 requestAnimationFrame(animatePod);
 
+function applyOfflineState() {
+    set("connection", "ARDUINO OFFLINE");
+    const dot = document.getElementById("dot");
+    if (dot) dot.classList.remove("online");
+
+    set("magNode", "Magnetometer Offline");
+    set("n1state", "N1 • OFFLINE");
+    set("mag", "0.00");
+    set("magdelta", "+0.00%");
+
+    set("freqNode", "TX Generator 0 Hz");
+    set("frequency", "0 Hz");
+
+    set("rx", "0.000000 V");
+    set("rxSecondary", "0.000000 V");
+    set("miniRx", "0.0000 V");
+    set("baseline", "0.000000 V");
+    set("emchange", "+0.0%");
+    set("miniChange", "+0.0%");
+    set("phase", "0.0000 V");
+
+    set("fusion", "0%");
+    set("fusionPercent", "0%");
+    set("consensusPct", "0%");
+    const fusionFill = document.getElementById("fusionFill");
+    if (fusionFill) fusionFill.style.width = "0%";
+
+    const hardwareText = document.getElementById("hardwareStatus");
+    if (hardwareText) {
+        hardwareText.textContent = "HARDWARE OFFLINE";
+        hardwareText.className = "decision-result";
+    }
+    const banner = document.getElementById("decisionBanner");
+    if (banner) banner.className = "decision-banner";
+
+    const status = document.getElementById("status");
+    if (status) {
+        status.textContent = "OFFLINE";
+        status.style.color = "var(--red)";
+    }
+
+    set("scanState", "OFFLINE");
+
+    const notice = document.getElementById("officialStatusNotice");
+    if (notice) {
+        notice.textContent = "No valid telemetry received. Arduino offline — all live values reset to zero.";
+        notice.style.color = "#991b1b";
+    }
+
+    set("meterPmnVal", "0.0");
+    set("meterPmnAbundance", "0.0 kg/m²");
+    set("detPmnScore", "0.0%");
+    set("detPmnAbundance", "0.0 kg/m²");
+    set("detPmnBarText", "0.0 / 20.0 kg/m²");
+    const pmnBar = document.getElementById("detPmnBar");
+    if (pmnBar) pmnBar.style.width = "0%";
+    const needlePmn = document.getElementById("needlePmn");
+    if (needlePmn) needlePmn.style.transform = "rotate(-120deg)";
+
+    set("meterSmsVal", "0.0");
+    set("meterSmsVent", "0 °C");
+    set("detSmsScore", "0.0%");
+    set("detSmsVent", "0.0 °C");
+    const needleSms = document.getElementById("needleSms");
+    if (needleSms) needleSms.style.transform = "rotate(-120deg)";
+
+    set("meterCrcVal", "0.0");
+    set("meterCrcThickness", "0.0 cm");
+    set("detCrcScore", "0.0%");
+    set("detCrcThickness", "0.0 cm");
+    const needleCrc = document.getElementById("needleCrc");
+    if (needleCrc) needleCrc.style.transform = "rotate(-120deg)";
+
+    set("meterReeVal", "0.0");
+    set("meterReeRey", "0 ppm REY");
+    set("detReeScore", "0.0%");
+    set("detReeRey", "0 ppm");
+    const needleRee = document.getElementById("needleRee");
+    if (needleRee) needleRee.style.transform = "rotate(-120deg)";
+
+    set("score", "0");
+    const arc = document.getElementById("gaugeArc");
+    if (arc) {
+        arc.style.strokeDashoffset = "251.2";
+        arc.style.stroke = "#1d4ed8";
+    }
+
+    const h = chart && chart.data ? chart.data : null;
+    if (h) {
+        chart.data.labels = [];
+        chart.data.datasets[0].data = [];
+        chart.data.datasets[1].data = [];
+        chart.update("none");
+    }
+
+    const podStatusBadge = document.getElementById("podStatusBadge");
+    if (podStatusBadge) podStatusBadge.className = "sonar-status-chip";
+    const podStatusText = document.getElementById("podStatusText");
+    if (podStatusText) podStatusText.textContent = "SYSTEM OFFLINE";
+    set("podProximityVal", "0% (CLEAR)");
+    set("podMaterialVal", "ARDUINO DISCONNECTED");
+    set("podLightVal", "0 LM");
+    set("podDepthVal", "0.0 M / OFFLINE");
+
+    const overlay = document.getElementById("metalAlertOverlay");
+    if (overlay) overlay.className = "sonar-overlay";
+    const overlayText = document.getElementById("metalAlertText");
+    if (overlayText) overlayText.textContent = "SYSTEM OFFLINE: NO VALID CONTACT DATA";
+
+    telemetryAnomalyOverride = false;
+}
+
 /* ---------------- TELEMETRY POLLING ---------------- */
 async function update() {
     try {
@@ -4355,19 +4469,25 @@ async function update() {
         const n3 = raw.N3 || {};
 
         appendStreamLog(d);
+        const online = !!d.connection;
+
+        if (!online) {
+            applyOfflineState();
+            return;
+        }
+
         telemetryAnomalyOverride = !!(a.anomaly || a.confirmed || (a.fusion_score > 25));
 
         // Connection State
-        const online = !!d.connection;
-        set("connection", online ? "ONLINE (COM3 @ 115200)" : "ARDUINO OFFLINE");
+        set("connection", "ARDUINO ONLINE");
         const dot = document.getElementById("dot");
-        if (dot) dot.classList.toggle("online", online);
+        if (dot) dot.classList.add("online");
 
         // N1 Magnetic
         set("magNode", n1.available ? (n1.simulated ? "Magnetometer (Simulated)" : "Magnetometer (Active)") : "Magnetometer Offline");
         set("n1state", n1.available ? (n1.simulated ? "N1 • SIMULATED" : "N1 • ACTIVE") : "N1 • OFFLINE");
         const magnetic = Number(n1.magnitude || 0);
-        const magneticChange = Number(n1.delta_percent || 0);
+        const magneticChange = Number(n1.magnetic_change_percent || n1.delta_percent || 0);
         set("mag", fmt(magnetic, 2));
         set("magdelta", (magneticChange >= 0 ? "+" : "") + fmt(magneticChange, 2) + "%");
 
@@ -4514,7 +4634,9 @@ async function update() {
         chart.data.datasets[1].data = h.map(x => Number(x.fusion || 0));
         chart.update("none");
 
-    } catch (err) {}
+    } catch (err) {
+        applyOfflineState();
+    }
 }
 
 /* ---------------- 3D VERCEL MODEL CONTROL ---------------- */
