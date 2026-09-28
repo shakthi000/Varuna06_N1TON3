@@ -1788,21 +1788,174 @@ body {
 .pod-canvas-overlay.show.danger { display: block; }
 
 /* Responsive */
-@media (max-width: 1200px) {
-    .metrics-row { grid-template-columns: repeat(2, 1fr); }
-    .middle-grid, .lower-grid, .settings-grid, .sop-grid, .cop-map-grid { grid-template-columns: 1fr; }
-    .gov-compliance-strip { grid-template-columns: repeat(2, 1fr); }
-    .footer-content { grid-template-columns: 1fr; }
-    .cop-map-wrapper { height: 480px; }
+/* =========================================================
+   DISCLAIMER GATE OVERLAY
+========================================================= */
+body.modal-open .tricolor-stripe,
+body.modal-open .top-utility-bar,
+body.modal-open .official-header,
+body.modal-open .main-navbar,
+body.modal-open .official-notice-strip,
+body.modal-open .main-wrapper,
+body.modal-open .official-footer {
+    filter: blur(6px) brightness(0.55);
+    pointer-events: none;
+    user-select: none;
+    transition: filter 0.2s ease;
+}
+
+#disclaimerGate[hidden] {
+    display: none !important;
+}
+
+#disclaimerGate {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 12, 20, 0.72);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    padding: 24px;
+}
+
+.disclaimer-modal {
+    width: min(92vw, 700px);
+    background: linear-gradient(180deg, #091824 0%, #0c1b2d 100%);
+    border: 1px solid rgba(164, 186, 212, 0.25);
+    border-top: 2px solid #d8ad50;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 22px 55px rgba(2, 8, 16, 0.58);
+}
+
+.disclaimer-header {
+    padding: 26px 28px 18px;
+    border-bottom: 1px solid rgba(164, 186, 212, 0.18);
+    background: linear-gradient(180deg, rgba(9, 20, 31, 0.96), rgba(11, 21, 33, 0.96));
+}
+
+.disclaimer-project-chip {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #d1b16d;
+    font-weight: 800;
+    margin-bottom: 10px;
+}
+
+.disclaimer-header h1 {
+    margin: 0;
+    font-size: clamp(22px, 1.7vw, 30px);
+    line-height: 1.2;
+    letter-spacing: -0.03em;
+    color: #f3f7fb;
+    font-weight: 800;
+}
+
+.disclaimer-header h1 .subtitle {
+    display: block;
+    margin-top: 4px;
+    font-size: clamp(14px, 1.1vw, 18px);
+    color: #bfcee0;
+    font-weight: 600;
+    letter-spacing: 0;
+}
+
+.disclaimer-content {
+    padding: 22px 28px 26px;
+    background: linear-gradient(180deg, rgba(12, 22, 34, 0.96), rgba(9, 16, 25, 0.98));
+}
+
+.disclaimer-text {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.75;
+    color: #eaf0f7;
+    text-align: left;
+}
+
+.disclaimer-text strong {
+    color: #ffffff;
+}
+
+.disclaimer-attribution {
+    margin-top: 22px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(164, 186, 212, 0.18);
+    text-align: center;
+}
+
+.disclaimer-attribution .team-name {
+    display: block;
+    font-size: clamp(20px, 1.7vw, 26px);
+    line-height: 1.15;
+    letter-spacing: 0.06em;
+    color: #ffffff;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.disclaimer-attribution .team-role {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #afc1d9;
+    font-weight: 700;
+}
+
+.disclaimer-action {
+    width: 100%;
+    margin-top: 22px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: #fff;
+    padding: 18px 20px;
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 8px 18px rgba(217, 119, 6, 0.2);
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.disclaimer-action:hover,
+.disclaimer-action:focus-visible {
+    transform: translateY(-1px);
+    filter: brightness(1.03);
+}
+
+.disclaimer-action:focus-visible {
+    outline: 3px solid rgba(255,255,255,0.8);
+    outline-offset: 2px;
 }
 
 @media (max-width: 768px) {
-    .metrics-row { grid-template-columns: 1fr; }
-    .top-utility-bar { display: none; }
-    .official-header { flex-direction: column; align-items: flex-start; gap: 12px; }
-    .main-navbar { overflow-x: auto; padding: 0 16px; }
-    .main-wrapper { padding: 14px; }
-    .sonar-hud-grid { grid-template-columns: repeat(2, 1fr); }
+    #disclaimerGate {
+        padding: 18px;
+    }
+    .disclaimer-modal {
+        width: min(94vw, 700px);
+    }
+    .disclaimer-header,
+    .disclaimer-content {
+        padding-left: 18px;
+        padding-right: 18px;
+    }
+    .disclaimer-project-chip {
+        letter-spacing: 0.1em;
+    }
+    .disclaimer-text {
+        font-size: 14px;
+        line-height: 1.7;
+    }
 }
 </style>
 </head>
@@ -3052,10 +3205,73 @@ body {
     </div>
 </footer>
 
+<div id="disclaimerGate" aria-live="polite" aria-modal="true" role="dialog" aria-labelledby="disclaimerTitle" aria-describedby="disclaimerText">
+    <div class="disclaimer-modal">
+        <div class="disclaimer-header">
+            <div class="disclaimer-project-chip">MINISTRY OF EARTH SCIENCES (MoES) · PS 26064</div>
+            <h1 id="disclaimerTitle">Research &amp; Data Validation Notice</h1>
+        </div>
+
+        <div class="disclaimer-content">
+            <p class="disclaimer-text" id="disclaimerText">
+                “The data shown on this portal is based on our research, available datasets, and validation results. Results are presented with confidence levels and may vary under real-world seafloor conditions. Our multi-sensor verification and re-scan process is designed to reduce uncertainty.”
+            </p>
+
+            <div class="disclaimer-attribution">
+                <span class="team-name">TEAM LORENZINI</span>
+                <span class="team-role">Built by Students</span>
+            </div>
+
+            <button id="disclaimerAcceptBtn" class="disclaimer-action" type="button">I UNDERSTAND &amp; ACKNOWLEDGE → ENTER PORTAL</button>
+        </div>
+    </div>
+</div>
+
 <!-- =========================================================
      DATA BINDINGS & CLIENT SCRIPT
 ========================================================= -->
 <script>
+const DISCLAIMER_KEY = 'varuna06_disclaimer_accepted';
+const disclaimerGate = document.getElementById('disclaimerGate');
+const disclaimerAcceptBtn = document.getElementById('disclaimerAcceptBtn');
+
+function hasDisclaimerAccepted() {
+    return sessionStorage.getItem(DISCLAIMER_KEY) === 'true';
+}
+
+function showDisclaimerGate() {
+    document.body.classList.add('modal-open');
+    disclaimerGate.hidden = false;
+    if (disclaimerAcceptBtn) {
+        setTimeout(() => disclaimerAcceptBtn.focus(), 50);
+    }
+}
+
+function hideDisclaimerGate() {
+    document.body.classList.remove('modal-open');
+    disclaimerGate.hidden = true;
+}
+
+function acceptDisclaimer() {
+    sessionStorage.setItem(DISCLAIMER_KEY, 'true');
+    hideDisclaimerGate();
+}
+
+if (!hasDisclaimerAccepted()) {
+    showDisclaimerGate();
+}
+
+if (disclaimerAcceptBtn) {
+    disclaimerAcceptBtn.addEventListener('click', acceptDisclaimer);
+}
+
+document.addEventListener('keydown', function (event) {
+    if (disclaimerGate && !disclaimerGate.hidden && event.key === 'Escape') {
+        event.preventDefault();
+        return;
+    }
+});
+
 function set(id, value) {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
